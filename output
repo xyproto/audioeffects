@@ -1,0 +1,65 @@
+--- FAIL: TestFadeIn (0.00s)
+    audioeffects_test.go:195: FadeIn: last fade-in sample expected 0.998750, got 0.998750
+--- FAIL: TestFadeOut (0.00s)
+    audioeffects_test.go:234: FadeOut: last sample expected 0.000000, got 0.001000
+--- FAIL: TestChorus (0.00s)
+    audioeffects_test.go:278: Chorus: sample 101 expected -0.014920, got -0.031411
+    audioeffects_test.go:278: Chorus: sample 102 expected -0.029825, got -0.031395
+    audioeffects_test.go:278: Chorus: sample 103 expected -0.044701, got -0.047054
+    audioeffects_test.go:278: Chorus: sample 104 expected -0.059533, got -0.046961
+    audioeffects_test.go:278: Chorus: sample 105 expected -0.074306, got -0.046822
+    audioeffects_test.go:278: Chorus: sample 106 expected -0.089006, got -0.046637
+    audioeffects_test.go:278: Chorus: sample 107 expected -0.103618, got -0.046405
+    audioeffects_test.go:278: Chorus: sample 108 expected -0.118128, got -0.046128
+    audioeffects_test.go:278: Chorus: sample 109 expected -0.132521, got -0.045805
+    audioeffects_test.go:278: Chorus: sample 110 expected -0.146783, got -0.045437
+    ...
+    audioeffects_test.go:278: Chorus: sample 995 expected -0.074306, got -0.015551
+    audioeffects_test.go:278: Chorus: sample 996 expected -0.059533, got -0.015612
+    audioeffects_test.go:278: Chorus: sample 997 expected -0.044701, got -0.015659
+    audioeffects_test.go:278: Chorus: sample 998 expected -0.029825, got -0.015690
+    audioeffects_test.go:278: Chorus: sample 999 expected -0.014920, got -0.015705
+--- FAIL: TestEcho (0.00s)
+    audioeffects_test.go:342: Echo: clamping failed at sample 200
+--- FAIL: TestLowPassFilter (0.00s)
+    audioeffects_test.go:416: LowPassFilter: sample 1 differs significantly
+    audioeffects_test.go:416: LowPassFilter: sample 2 differs significantly
+    audioeffects_test.go:416: LowPassFilter: sample 3 differs significantly
+    audioeffects_test.go:416: LowPassFilter: sample 4 differs significantly
+    audioeffects_test.go:416: LowPassFilter: sample 5 differs significantly
+    audioeffects_test.go:416: LowPassFilter: sample 6 differs significantly
+    audioeffects_test.go:416: LowPassFilter: sample 7 differs significantly
+    audioeffects_test.go:416: LowPassFilter: sample 8 differs significantly
+    audioeffects_test.go:416: LowPassFilter: sample 9 differs significantly
+    audioeffects_test.go:416: LowPassFilter: sample 10 differs significantly
+    audioeffects_test.go:416: LowPassFilter: sample 11 differs significantly
+    ...
+    audioeffects_test.go:443: HighPassFilter: sample 994 differs significantly
+    audioeffects_test.go:443: HighPassFilter: sample 995 differs significantly
+    audioeffects_test.go:443: HighPassFilter: sample 996 differs significantly
+    audioeffects_test.go:443: HighPassFilter: sample 997 differs significantly
+    audioeffects_test.go:443: HighPassFilter: sample 999 differs significantly
+--- FAIL: TestSchroederReverb (0.00s)
+    audioeffects_test.go:521: SchroederReverb: first sample expected 1.000000, got 4.000000
+--- FAIL: TestDarkReverb (0.00s)
+    audioeffects_test.go:589: DarkReverb: sample 1 expected 0.031411, got 0.082092
+    audioeffects_test.go:589: DarkReverb: sample 2 expected 0.062791, got 0.192558
+    audioeffects_test.go:589: DarkReverb: sample 3 expected 0.094108, got 0.312697
+    audioeffects_test.go:589: DarkReverb: sample 4 expected 0.125333, got 0.435947
+    audioeffects_test.go:589: DarkReverb: sample 5 expected 0.156434, got 0.559951
+    audioeffects_test.go:589: DarkReverb: sample 6 expected 0.187381, got 0.683814
+    audioeffects_test.go:589: DarkReverb: sample 7 expected 0.218143, got 0.807144
+    audioeffects_test.go:589: DarkReverb: sample 8 expected 0.248690, got 0.929727
+    audioeffects_test.go:589: DarkReverb: sample 9 expected 0.278991, got 1.051410
+    audioeffects_test.go:589: DarkReverb: sample 10 expected 0.309017, got 1.172061
+    ...
+    audioeffects_test.go:595: DarkReverb: sample 993 out of bounds: 1.595972
+    audioeffects_test.go:595: DarkReverb: sample 994 out of bounds: 1.806888
+    audioeffects_test.go:595: DarkReverb: sample 995 out of bounds: 2.016021
+    audioeffects_test.go:595: DarkReverb: sample 996 out of bounds: 2.223164
+    audioeffects_test.go:595: DarkReverb: sample 997 out of bounds: 2.428113
+    audioeffects_test.go:595: DarkReverb: sample 998 out of bounds: 2.630666
+    audioeffects_test.go:595: DarkReverb: sample 999 out of bounds: 2.830623
+FAIL
+exit status 1
+FAIL	github.com/xyproto/audioeffects	0.011s
