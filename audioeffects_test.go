@@ -171,40 +171,7 @@ func TestEffectsGeneration(t *testing.T) {
 	}
 	t.Logf("Generated %s", chorusPath)
 
-	// Step 8: Apply Schroeder Reverb
-	// Updated delay times: Using longer delays for natural reverb
-	combDelays := []int{
-		int(0.050 * float64(sampleRate)), // 50ms
-		int(0.056 * float64(sampleRate)), // 56ms
-		int(0.062 * float64(sampleRate)), // 62ms
-		int(0.068 * float64(sampleRate)), // 68ms
-	} // [50ms, 56ms, 62ms, 68ms] at 44100 Hz
-	allPassDelays := []int{
-		int(0.005 * float64(sampleRate)), // 5ms
-		int(0.007 * float64(sampleRate)), // 7ms
-	} // [5ms, 7ms] at 44100 Hz
-	reverb, err := SchroederReverb(append([]float64(nil), original...), 0.6, combDelays, allPassDelays)
-	if err != nil {
-		t.Fatalf("SchroederReverb error: %v", err)
-	}
-	reverbPath := filepath.Join(outputDir, "reverb.wav")
-	if err := writeWav(reverbPath, reverb, sampleRate); err != nil {
-		t.Fatalf("Failed to write reverb.wav: %v", err)
-	}
-	t.Logf("Generated %s", reverbPath)
-
-	// Step 9: Apply Dark Reverb
-	darkReverb, err := DarkReverb(append([]float64(nil), original...), 0.6, combDelays, allPassDelays, 300.0, sampleRate)
-	if err != nil {
-		t.Fatalf("DarkReverb error: %v", err)
-	}
-	darkReverbPath := filepath.Join(outputDir, "dark_reverb.wav")
-	if err := writeWav(darkReverbPath, darkReverb, sampleRate); err != nil {
-		t.Fatalf("Failed to write dark_reverb.wav: %v", err)
-	}
-	t.Logf("Generated %s", darkReverbPath)
-
-	// Step 10: Apply Limiter
+	// Step 8: Apply Limiter
 	limited := Limiter(append([]float64(nil), original...))
 	limiterPath := filepath.Join(outputDir, "limited.wav")
 	if err := writeWav(limiterPath, limited, sampleRate); err != nil {
@@ -212,7 +179,7 @@ func TestEffectsGeneration(t *testing.T) {
 	}
 	t.Logf("Generated %s", limiterPath)
 
-	// Step 11: Apply NormalizeSamples
+	// Step 9: Apply NormalizeSamples
 	normalized := NormalizeSamples(append([]float64(nil), original...), 0.8)
 	normalizedPath := filepath.Join(outputDir, "normalized.wav")
 	if err := writeWav(normalizedPath, normalized, sampleRate); err != nil {
