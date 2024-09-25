@@ -15,7 +15,7 @@ type Biquad struct {
 }
 
 // NewBiquad creates a new Biquad filter based on the specified type and parameters.
-// filterType can be "low-pass", "high-pass", "band-pass", "notch", etc.
+// filterType can be "low-pass", "high-pass", "band-pass", "notch", "all-pass", etc.
 // freq is the center frequency, Q is the quality factor, and sampleRate is the sampling rate in Hz.
 func NewBiquad(filterType string, freq, Q, sampleRate float64) *Biquad {
 	omega := 2 * math.Pi * freq / sampleRate
@@ -50,7 +50,13 @@ func NewBiquad(filterType string, freq, Q, sampleRate float64) *Biquad {
 		a2 = 1 - alpha
 		b1 = 2 * cosOmega
 		b2 = 1 - alpha
-	// Add other filter types as needed
+	case "all-pass":
+		// All-pass filter coefficients
+		a0 = 1 + alpha
+		a1 = -2 * cosOmega
+		a2 = 1 - alpha
+		b1 = 2 * cosOmega
+		b2 = -(1 - alpha)
 	default:
 		// Default to pass-through if filter type is unknown
 		a0 = 1
@@ -109,7 +115,13 @@ func (b *Biquad) UpdateParameters(filterType string, freq, Q, sampleRate float64
 		a2 = 1 - alpha
 		b1 = 2 * cosOmega
 		b2 = 1 - alpha
-	// Add other filter types as needed
+	case "all-pass":
+		// All-pass filter coefficients
+		a0 = 1 + alpha
+		a1 = -2 * cosOmega
+		a2 = 1 - alpha
+		b1 = 2 * cosOmega
+		b2 = -(1 - alpha)
 	default:
 		// Default to pass-through if filter type is unknown
 		a0 = 1
@@ -137,646 +149,96 @@ func (b *Biquad) Process(sample float64) float64 {
 	return y
 }
 
-// CompressorSettings represents a dynamic range compressor with its parameters.
+// CompressorSettings defines the settings for a compressor.
 type CompressorSettings struct {
-	Threshold float64 // Threshold level above which compression is applied
+	Threshold float64 // Threshold level
 	Ratio     float64 // Compression ratio
 	Attack    float64 // Attack time in seconds
 	Release   float64 // Release time in seconds
 }
 
-// Envelope applies an ADSR envelope to the waveform.
-func Envelope(samples []float64, attack, decay, sustain, release float64, sampleRate int) []float64 {
-	adsr := make([]float64, len(samples))
-	totalDuration := float64(len(samples)) / float64(sampleRate)
-	for i := range samples {
-		t := float64(i) / float64(sampleRate)
-		var envelope float64
-		if t < attack {
-			envelope = t / attack
-		} else if t < attack+decay {
-			envelope = 1 - (t-attack)/decay*(1-sustain)
-		} else if t < totalDuration-release {
-			envelope = sustain
-		} else if t < totalDuration {
-			envelope = sustain * (1 - (t-(totalDuration-release))/release)
-		} else {
-			envelope = 0.0
-		}
-		adsr[i] = samples[i] * envelope
-	}
-	return adsr
-}
-
-// EnvelopeAtTime generates the ADSR envelope value at a specific time.
-func EnvelopeAtTime(t, attack, decay, sustain, release, duration float64) float64 {
-	if t < attack {
-		return t / attack
-	}
-	if t < attack+decay {
-		return 1.0 - (t-attack)/decay*(1.0-sustain)
-	}
-	if t < duration-release {
-		return sustain
-	}
-	if t < duration {
-		return sustain * (1.0 - (t-(duration-release))/release)
-	}
-	return 0.0
-}
-
-// Drive applies a drive (distortion) effect to a single sample.
-func Drive(sample, drive float64) float64 {
-	if drive > 0 {
-		return sample * (1 + drive) / (1 + drive*math.Abs(sample))
-	}
-	return sample
-}
-
-// PitchModulation applies pitch modulation to the samples using phase modulation.
-func PitchModulation(samples []float64, modFreq, modDepth float64, sampleRate int) []float64 {
-	modulated := make([]float64, len(samples))
-	carrierPhase := 0.0
-	modulatorPhase := 0.0
-	for i := range samples {
-		carrierFreq := modDepth * math.Sin(2*math.Pi*modFreq*modulatorPhase)
-		carrierPhase += carrierFreq / float64(sampleRate)
-		modulated[i] = math.Sin(2*math.Pi*carrierPhase) * samples[i]
-		// Clamp the value to prevent clipping
-		if modulated[i] > 1.0 {
-			modulated[i] = 1.0
-		} else if modulated[i] < -1.0 {
-			modulated[i] = -1.0
-		}
-		modulatorPhase += 1.0 / float64(sampleRate)
-	}
-	return modulated
-}
-
-// Panning applies stereo panning to the samples.
-// pan should be in the range [-1, 1], where -1 is full left and 1 is full right.
-func Panning(samples []float64, pan float64) ([]float64, []float64) {
-	leftChannel := make([]float64, len(samples))
-	rightChannel := make([]float64, len(samples))
-	// Clamp pan to [-1, 1]
-	if pan < -1.0 {
-		pan = -1.0
-	} else if pan > 1.0 {
-		pan = 1.0
-	}
-	leftGain := math.Cos((pan + 1) * math.Pi / 4)  // Equal-power panning
-	rightGain := math.Sin((pan + 1) * math.Pi / 4) // Equal-power panning
-
-	for i := range samples {
-		leftChannel[i] = samples[i] * leftGain
-		rightChannel[i] = samples[i] * rightGain
-	}
-
-	return leftChannel, rightChannel
-}
-
-// FrequencyModulation applies frequency modulation to a waveform using a modulator frequency and depth.
-func FrequencyModulation(samples []float64, modFreq, modDepth float64, sampleRate int) []float64 {
-	modulated := make([]float64, len(samples))
-	carrierPhase := 0.0
-	modulatorPhase := 0.0
-	for i := range samples {
-		carrierFreq := modDepth * math.Sin(2*math.Pi*modFreq*modulatorPhase)
-		carrierPhase += carrierFreq / float64(sampleRate)
-		modulated[i] = math.Sin(2*math.Pi*carrierPhase) * samples[i]
-		// Clamp the value to prevent clipping
-		if modulated[i] > 1.0 {
-			modulated[i] = 1.0
-		} else if modulated[i] < -1.0 {
-			modulated[i] = -1.0
-		}
-		modulatorPhase += 1.0 / float64(sampleRate)
-	}
-	return modulated
-}
-
-// FadeIn applies a linear fade-in to the start of the samples.
-func FadeIn(samples []float64, fadeDuration float64, sampleRate int) []float64 {
-	fadeSamples := int(fadeDuration * float64(sampleRate))
+// FadeIn applies a fade-in effect to the samples.
+// duration: Duration of the fade-in in seconds.
+// sampleRate: Sampling rate in Hz.
+func FadeIn(samples []float64, duration float64, sampleRate int) []float64 {
+	faded := make([]float64, len(samples))
+	fadeSamples := int(duration * float64(sampleRate))
 	if fadeSamples > len(samples) {
 		fadeSamples = len(samples)
 	}
-	for i := 0; i < fadeSamples; i++ {
-		if fadeSamples > 1 {
-			t := float64(i) / float64(fadeSamples)
-			multiplier := t
-			samples[i] *= multiplier
-		} else {
-			// For fadeSamples=1, set the first sample to full amplitude
-			samples[0] *= 1.0
-		}
-	}
-	return samples
-}
-
-// FadeOut applies a linear fade-out to the end of the samples.
-func FadeOut(samples []float64, fadeDuration float64, sampleRate int) []float64 {
-	totalSamples := len(samples)
-	fadeSamples := int(fadeDuration * float64(sampleRate))
-	if fadeSamples > totalSamples {
-		fadeSamples = totalSamples
-	}
-	for i := 0; i < fadeSamples; i++ {
-		if fadeSamples > 1 {
-			t := float64(i) / float64(fadeSamples-1) // Ensure t reaches 1.0 at the last sample
-			multiplier := 1.0 - t                    // Linear fade
-			index := totalSamples - fadeSamples + i
-			if index >= 0 && index < totalSamples {
-				samples[index] *= multiplier
-			}
-		} else {
-			// For fadeSamples=1, set the last sample to 0
-			index := totalSamples - 1
-			if index >= 0 && index < totalSamples {
-				samples[index] *= 0.0
-			}
-		}
-	}
-	return samples
-}
-
-// Chorus applies a chorus effect to the samples.
-// delaySec: Base delay time in seconds.
-// modDepth: Modulation depth as a fraction (e.g., 0.05 for 5%).
-// rate: Modulation rate in Hz.
-// mix: Mixing proportion of the delayed signal (0.0 to 1.0).
-func Chorus(samples []float64, sampleRate int, delaySec float64, modDepth float64, rate float64, mix float64) []float64 {
-	delaySamples := int(delaySec * float64(sampleRate))
-	if delaySamples <= 0 {
-		delaySamples = 1
-	}
-	modulated := make([]float64, len(samples))
-	buffer := make([]float64, delaySamples)
-	bufferIndex := 0
-
-	phaseIncrement := rate / float64(sampleRate)
-	phase := 0.0
-
 	for i := 0; i < len(samples); i++ {
-		// Modulate the delay time with a sine wave
-		modulation := modDepth * math.Sin(2*math.Pi*phase)
-		currentDelay := int(float64(delaySamples) * (1 + modulation))
-		if currentDelay < 0 {
-			currentDelay = 0
-		} else if currentDelay >= delaySamples {
-			currentDelay = delaySamples - 1
-		}
-
-		// Calculate buffer read index
-		readIndex := (bufferIndex - currentDelay + delaySamples) % delaySamples
-		delayedSample := buffer[readIndex]
-
-		// Mix the original and delayed samples
-		modulated[i] = samples[i]*(1-mix) + delayedSample*mix
-
-		// Update buffer with current sample
-		buffer[bufferIndex] = samples[i]
-
-		// Increment buffer index
-		bufferIndex = (bufferIndex + 1) % delaySamples
-
-		// Increment phase
-		phase += phaseIncrement
-		if phase >= 1.0 {
-			phase -= 1.0
+		if i < fadeSamples {
+			faded[i] = samples[i] * float64(i) / float64(fadeSamples)
+		} else {
+			faded[i] = samples[i]
 		}
 	}
-
-	// Clamp to avoid clipping
-	for i := range modulated {
-		if modulated[i] > 1.0 {
-			modulated[i] = 1.0
-		} else if modulated[i] < -1.0 {
-			modulated[i] = -1.0
-		}
-	}
-
-	return modulated
+	return faded
 }
 
-// LowPassFilter applies a basic low-pass filter to the samples.
-func LowPassFilter(samples []float64, cutoff float64, sampleRate int) []float64 {
-	filtered := make([]float64, len(samples))
-	rc := 1.0 / (2.0 * math.Pi * cutoff)
-	dt := 1.0 / float64(sampleRate)
-	alpha := dt / (rc + dt)
-
-	if len(samples) == 0 {
-		return samples
+// FadeOut applies a fade-out effect to the samples.
+// duration: Duration of the fade-out in seconds.
+// sampleRate: Sampling rate in Hz.
+func FadeOut(samples []float64, duration float64, sampleRate int) []float64 {
+	faded := make([]float64, len(samples))
+	fadeSamples := int(duration * float64(sampleRate))
+	startFade := len(samples) - fadeSamples
+	if startFade < 0 {
+		startFade = 0
 	}
+	for i := 0; i < len(samples); i++ {
+		if i >= startFade {
+			faded[i] = samples[i] * float64(len(samples)-i) / float64(fadeSamples)
+		} else {
+			faded[i] = samples[i]
+		}
+	}
+	return faded
+}
 
-	prev := samples[0]       // Initialize with the first sample
-	filtered[0] = samples[0] // The first sample remains the same
-
-	for i := 1; i < len(samples); i++ {
-		filtered[i] = alpha*samples[i] + (1-alpha)*prev
-		prev = filtered[i]
+// LowPassFilter applies a low-pass filter to the samples.
+// cutoffFreq: Cutoff frequency in Hz.
+// sampleRate: Sampling rate in Hz.
+func LowPassFilter(samples []float64, cutoffFreq float64, sampleRate int) []float64 {
+	filter := NewBiquad("low-pass", cutoffFreq, 0.707, float64(sampleRate))
+	filtered := make([]float64, len(samples))
+	for i, sample := range samples {
+		filtered[i] = filter.Process(sample)
 	}
 	return filtered
 }
 
-// HighPassFilter applies a basic high-pass filter to the samples.
-func HighPassFilter(samples []float64, cutoff float64, sampleRate int) []float64 {
+// HighPassFilter applies a high-pass filter to the samples.
+// cutoffFreq: Cutoff frequency in Hz.
+// sampleRate: Sampling rate in Hz.
+func HighPassFilter(samples []float64, cutoffFreq float64, sampleRate int) []float64 {
+	filter := NewBiquad("high-pass", cutoffFreq, 0.707, float64(sampleRate))
 	filtered := make([]float64, len(samples))
-	rc := 1.0 / (2.0 * math.Pi * cutoff)
-	dt := 1.0 / float64(sampleRate)
-	alpha := rc / (rc + dt)
-
-	if len(samples) == 0 {
-		return samples
-	}
-
-	filtered[0] = samples[0]
-
-	for i := 1; i < len(samples); i++ {
-		filtered[i] = alpha * (filtered[i-1] + samples[i] - samples[i-1])
+	for i, sample := range samples {
+		filtered[i] = filter.Process(sample)
 	}
 	return filtered
 }
 
-// BandPassFilter applies a band-pass filter to the samples using low and high cutoff frequencies.
-func BandPassFilter(samples []float64, lowCutoff, highCutoff float64, sampleRate int) []float64 {
-	lowPassed := LowPassFilter(samples, highCutoff, sampleRate)
-	return HighPassFilter(lowPassed, lowCutoff, sampleRate)
-}
-
-// Limiter ensures the signal doesn't exceed [-1, 1] range.
-func Limiter(samples []float64) []float64 {
-	limited := make([]float64, len(samples))
-	for i, sample := range samples {
-		if sample > 1.0 {
-			limited[i] = 1.0
-		} else if sample < -1.0 {
-			limited[i] = -1.0
-		} else {
-			limited[i] = sample
-		}
-	}
-	return limited
-}
-
-// NormalizeSamples scales the samples so the peak amplitude matches the given target peak.
-func NormalizeSamples(samples []float64, targetPeak float64) []float64 {
-	if targetPeak <= 0 {
-		// Invalid target peak, return samples unmodified
-		return samples
-	}
-
-	currentPeak := 0.0
-	for _, sample := range samples {
-		abs := math.Abs(sample)
-		if abs > currentPeak {
-			currentPeak = abs
-		}
-	}
-
-	if currentPeak == 0 {
-		return samples
-	}
-
-	scale := targetPeak / currentPeak
-	normalizedSamples := make([]float64, len(samples))
-	for i, sample := range samples {
-		normalized := sample * scale
-		// Clamp the values to the [-1, 1] range after scaling
-		if normalized > 1.0 {
-			normalizedSamples[i] = 1.0
-		} else if normalized < -1.0 {
-			normalizedSamples[i] = -1.0
-		} else {
-			normalizedSamples[i] = normalized
-		}
-	}
-	return normalizedSamples
-}
-
-// Reverb applies a simple feedback reverb effect to the samples.
-// delayTime: Delay time in seconds.
-// decay: Decay factor for the reverb.
-func Reverb(samples []float64, sampleRate int, delayTime float64, decay float64) []float64 {
-	delaySamples := int(delayTime * float64(sampleRate))
-	if delaySamples <= 0 {
-		delaySamples = 1
-	}
-	reverb := make([]float64, len(samples))
-	buffer := make([]float64, delaySamples)
-	bufferIndex := 0
-
-	for i, sample := range samples {
-		delayed := buffer[bufferIndex]
-		reverb[i] = sample + delayed*decay
-		buffer[bufferIndex] = reverb[i]
-		bufferIndex = (bufferIndex + 1) % delaySamples
-	}
-
-	return reverb
-}
-
-// Delay applies a delay (echo) effect to the samples.
-// delayTime: Delay time in seconds.
-// feedback: Feedback factor (0.0 to less than 1.0).
-// mix: Mixing proportion of the delayed signal (0.0 to 1.0).
-func Delay(samples []float64, sampleRate int, delayTime float64, feedback float64, mix float64) []float64 {
-	delaySamples := int(delayTime * float64(sampleRate))
-	if delaySamples <= 0 {
-		delaySamples = 1
-	}
-	delayed := make([]float64, len(samples))
-	buffer := make([]float64, delaySamples)
-	bufferIndex := 0
-
-	for i, sample := range samples {
-		delayedSample := buffer[bufferIndex]
-		delayed[i] = sample*(1-mix) + delayedSample*mix
-		buffer[bufferIndex] = sample + delayedSample*feedback
-		bufferIndex = (bufferIndex + 1) % delaySamples
-	}
-
-	return delayed
-}
-
-// Compressor applies dynamic range compression to the samples.
-// threshold: Threshold level above which compression is applied.
-// ratio: Compression ratio.
-// attack: Attack time in seconds.
-// release: Release time in seconds.
+// BandPassFilter applies a band-pass filter to the samples.
+// lowFreq: Lower cutoff frequency in Hz.
+// highFreq: Upper cutoff frequency in Hz.
 // sampleRate: Sampling rate in Hz.
-func Compressor(samples []float64, threshold, ratio, attack, release float64, sampleRate int) []float64 {
-	compressed := make([]float64, len(samples))
-	envelope := 0.0
-
-	attackCoeff := math.Exp(-1.0 / (attack * float64(sampleRate)))
-	releaseCoeff := math.Exp(-1.0 / (release * float64(sampleRate)))
-
+func BandPassFilter(samples []float64, lowFreq, highFreq float64, sampleRate int) []float64 {
+	// Calculate center frequency and Q factor
+	centerFreq := (lowFreq + highFreq) / 2
+	BandWidth := highFreq - lowFreq
+	Q := centerFreq / BandWidth
+	filter := NewBiquad("band-pass", centerFreq, Q, float64(sampleRate))
+	filtered := make([]float64, len(samples))
 	for i, sample := range samples {
-		absSample := math.Abs(sample)
-
-		if absSample > envelope {
-			envelope = attackCoeff*envelope + (1.0-attackCoeff)*absSample
-		} else {
-			envelope = releaseCoeff*envelope + (1.0-releaseCoeff)*absSample
-		}
-
-		var gain float64
-		if envelope > threshold {
-			gain = threshold + (envelope-threshold)/ratio
-			gain /= envelope
-			if gain < 0.0 {
-				gain = 0.0
-			}
-		} else {
-			gain = 1.0
-		}
-
-		compressed[i] = sample * gain
+		filtered[i] = filter.Process(sample)
 	}
-
-	return compressed
+	return filtered
 }
 
-// Tremolo applies a tremolo effect by modulating the amplitude of the samples.
-// rate: Modulation rate in Hz.
-// depth: Modulation depth (0.0 to 1.0).
-// sampleRate: Sampling rate in Hz.
-func Tremolo(samples []float64, sampleRate int, rate, depth float64) []float64 {
-	// Clamp depth to [0.0, 1.0]
-	if depth < 0.0 {
-		depth = 0.0
-	} else if depth > 1.0 {
-		depth = 1.0
-	}
-
-	tremolo := make([]float64, len(samples))
-	phaseIncrement := rate / float64(sampleRate)
-	phase := 0.0
-
-	for i := range samples {
-		modulation := 1.0 - depth + depth*math.Sin(2*math.Pi*phase)
-		tremolo[i] = samples[i] * modulation
-		phase += phaseIncrement
-		if phase >= 1.0 {
-			phase -= 1.0
-		}
-	}
-
-	return tremolo
-}
-
-// Flanger applies a flanger effect to the samples.
-// baseDelaySec: Base delay time in seconds.
-// modDepthSec: Modulation depth in seconds.
-// rate: Modulation rate in Hz.
-// feedback: Feedback factor (0.0 to less than 1.0).
-// mix: Mixing proportion of the delayed signal (0.0 to 1.0).
-func Flanger(samples []float64, sampleRate int, baseDelaySec, modDepthSec, rate, feedback, mix float64) []float64 {
-	baseDelaySamples := int(baseDelaySec * float64(sampleRate))
-	modDepthSamples := int(modDepthSec * float64(sampleRate))
-	maxDelay := baseDelaySamples + modDepthSamples
-	if maxDelay <= 0 {
-		maxDelay = 1
-	}
-	buffer := make([]float64, maxDelay)
-	flanged := make([]float64, len(samples))
-	bufferIndex := 0
-
-	phaseIncrement := rate / float64(sampleRate)
-	phase := 0.0
-
-	for i, sample := range samples {
-		// Calculate modulated delay
-		modulation := math.Sin(2 * math.Pi * phase)
-		currentDelay := baseDelaySamples + int(float64(modDepthSamples)*modulation)
-		if currentDelay < 0 {
-			currentDelay = 0
-		} else if currentDelay >= maxDelay {
-			currentDelay = maxDelay - 1
-		}
-
-		// Read delayed sample
-		readIndex := (bufferIndex - currentDelay + maxDelay) % maxDelay
-		delayedSample := buffer[readIndex]
-
-		// Apply flanger effect
-		flanged[i] = sample*(1-mix) + delayedSample*mix
-
-		// Update buffer with current sample + feedback
-		buffer[bufferIndex] = sample + delayedSample*feedback
-
-		// Increment buffer index
-		bufferIndex = (bufferIndex + 1) % maxDelay
-
-		// Increment phase
-		phase += phaseIncrement
-		if phase >= 1.0 {
-			phase -= 1.0
-		}
-	}
-
-	// Clamp to avoid clipping
-	for i := range flanged {
-		if flanged[i] > 1.0 {
-			flanged[i] = 1.0
-		} else if flanged[i] < -1.0 {
-			flanged[i] = -1.0
-		}
-	}
-
-	return flanged
-}
-
-// Phaser applies a phaser effect to the samples.
-// rate: Modulation rate in Hz.
-// depth: Modulation depth.
-// feedback: Feedback factor (0.0 to less than 1.0).
-// sampleRate: Sampling rate in Hz.
-func Phaser(samples []float64, sampleRate int, rate, depth, feedback float64) []float64 {
-	phased := make([]float64, len(samples))
-	phaseIncrement := rate / float64(sampleRate)
-	phase := 0.0
-
-	// Initialize two all-pass filters for a basic phaser
-	// Note: A proper phaser would require multiple all-pass filters with phase shifts
-	allPass1 := NewBiquad("all-pass", 1000.0, 0.7, float64(sampleRate))
-	allPass2 := NewBiquad("all-pass", 1500.0, 0.7, float64(sampleRate))
-
-	for i, sample := range samples {
-		// Sweep the center frequency with LFO
-		sweep := math.Sin(2 * math.Pi * phase)
-		centerFreq := 1000.0 + depth*1000.0*sweep // Example frequency sweep from 0 to 2000 Hz
-		if centerFreq < 20.0 {                    // Prevent frequencies below human hearing
-			centerFreq = 20.0
-		} else if centerFreq > float64(sampleRate)/2 {
-			centerFreq = float64(sampleRate) / 2
-		}
-
-		// Update filter parameters dynamically
-		allPass1.UpdateParameters("all-pass", centerFreq, 0.7, float64(sampleRate))
-		allPass2.UpdateParameters("all-pass", centerFreq, 0.7, float64(sampleRate))
-
-		// Apply all-pass filters with feedback
-		out1 := allPass1.Process(sample + feedback*phased[i-1])
-		out2 := allPass2.Process(out1 + feedback*phased[i-1])
-		phased[i] = out2
-
-		// Increment phase
-		phase += phaseIncrement
-		if phase >= 1.0 {
-			phase -= 1.0
-		}
-	}
-
-	return phased
-}
-
-// Bitcrusher reduces the bit depth and/or sample rate of the audio signal.
-// bitDepth: Number of bits to retain (e.g., 8 for 8-bit).
-// sampleRateReduction: Factor by which to reduce the sample rate (e.g., 2 to halve the sample rate).
-func Bitcrusher(samples []float64, bitDepth int, sampleRateReduction int) []float64 {
-	if bitDepth <= 0 {
-		bitDepth = 16 // Default to 16 bits
-	}
-	if sampleRateReduction <= 0 {
-		sampleRateReduction = 1 // No reduction
-	}
-
-	crushed := make([]float64, len(samples))
-	step := math.Pow(2, float64(bitDepth))
-	sampleCounter := 0
-	var lastSample float64
-	for i, sample := range samples {
-		// Bit depth reduction
-		quantized := math.Round(sample*step) / step
-
-		// Sample rate reduction
-		if sampleCounter%sampleRateReduction == 0 {
-			lastSample = quantized
-		}
-		crushed[i] = lastSample
-		sampleCounter++
-	}
-	return crushed
-}
-
-// RingModulation applies ring modulation to the samples using a carrier frequency.
-// carrierFreq: Frequency of the carrier in Hz.
-// sampleRate: Sampling rate in Hz.
-func RingModulation(samples []float64, carrierFreq float64, sampleRate int) []float64 {
-	modulated := make([]float64, len(samples))
-	for i := range samples {
-		t := float64(i) / float64(sampleRate)
-		carrier := math.Sin(2 * math.Pi * carrierFreq * t)
-		modulated[i] = samples[i] * carrier
-	}
-	return modulated
-}
-
-// WahWah applies a wah-wah effect to the samples.
-// baseFreq: Base center frequency of the band-pass filter.
-// sweepFreq: Frequency of the LFO sweeping the center frequency.
-// q: Quality factor of the band-pass filter.
-// sampleRate: Sampling rate in Hz.
-func WahWah(samples []float64, sampleRate int, baseFreq, sweepFreq, q float64) []float64 {
-	wah := make([]float64, len(samples))
-	phaseIncrement := sweepFreq / float64(sampleRate)
-	phase := 0.0
-
-	// Initialize band-pass filter
-	biquad := NewBiquad("band-pass", baseFreq, q, float64(sampleRate))
-
-	for i, sample := range samples {
-		// Sweep the center frequency with LFO
-		sweep := math.Sin(2 * math.Pi * phase)
-		centerFreq := baseFreq + sweep*baseFreq // Sweep from baseFreq - baseFreq to baseFreq + baseFreq
-		if centerFreq < 20.0 {                  // Prevent frequencies below human hearing
-			centerFreq = 20.0
-		} else if centerFreq > float64(sampleRate)/2 {
-			centerFreq = float64(sampleRate) / 2
-		}
-
-		// Update filter parameters
-		biquad.UpdateParameters("band-pass", centerFreq, q, float64(sampleRate))
-
-		// Apply band-pass filter
-		wah[i] = biquad.Process(sample)
-
-		// Increment phase
-		phase += phaseIncrement
-		if phase >= 1.0 {
-			phase -= 1.0
-		}
-	}
-
-	return wah
-}
-
-// StereoWidening enhances the stereo image by manipulating the amplitude differences between the left and right channels.
-// width: Width factor (0.0 for mono, up to 1.0 for maximum widening).
-func StereoWidening(left, right []float64, width float64) ([]float64, []float64) {
-	widenedLeft := make([]float64, len(left))
-	widenedRight := make([]float64, len(right))
-
-	// Clamp width to [0.0, 1.0]
-	if width < 0.0 {
-		width = 0.0
-	} else if width > 1.0 {
-		width = 1.0
-	}
-
-	for i := range left {
-		widenedLeft[i] = left[i] * (1 + width)
-		widenedRight[i] = right[i] * (1 - width)
-	}
-
-	return widenedLeft, widenedRight
-}
-
-// NoiseGate suppresses audio signals that fall below a certain threshold.
-// threshold: Threshold level below which the signal is attenuated.
+// NoiseGate reduces the volume of audio signals that fall below a certain threshold.
+// threshold: Threshold level below which audio is attenuated.
 // attack: Attack time in seconds.
 // release: Release time in seconds.
 // sampleRate: Sampling rate in Hz.
@@ -890,7 +352,7 @@ func SoftClippingDistortion(samples []float64, drive float64) []float64 {
 	distorted := make([]float64, len(samples))
 	for i, sample := range samples {
 		distorted[i] = SoftClip(sample, drive)
-		// Optional: Clamp to [-1, 1]
+		// Clamp to [-1, 1]
 		if distorted[i] > 1.0 {
 			distorted[i] = 1.0
 		} else if distorted[i] < -1.0 {
@@ -947,6 +409,312 @@ func SidechainCompressor(target, trigger []float64, threshold, ratio, attack, re
 	return compressed
 }
 
+// Compressor applies dynamic range compression to the samples.
+// threshold: Threshold level above which compression is applied.
+// ratio: Compression ratio.
+// attack: Attack time in seconds.
+// release: Release time in seconds.
+// sampleRate: Sampling rate in Hz.
+func Compressor(samples []float64, threshold, ratio, attack, release float64, sampleRate int) []float64 {
+	compressed := make([]float64, len(samples))
+	gain := 1.0
+
+	attackCoeff := math.Exp(-1.0 / (attack * float64(sampleRate)))
+	releaseCoeff := math.Exp(-1.0 / (release * float64(sampleRate)))
+
+	for i, sample := range samples {
+		absSample := math.Abs(sample)
+
+		if absSample > threshold {
+			gain = attackCoeff*gain + (1.0-attackCoeff)*(threshold/absSample)
+		} else {
+			gain = releaseCoeff*gain + (1.0-releaseCoeff)*1.0
+		}
+
+		compressed[i] = sample * gain
+	}
+
+	return compressed
+}
+
+// Envelope applies an ADSR envelope to the samples.
+// attack: Attack time in seconds.
+// decay: Decay time in seconds.
+// sustainLevel: Sustain level (0.0 to 1.0).
+// release: Release time in seconds.
+// sampleRate: Sampling rate in Hz.
+func Envelope(samples []float64, attack, decay, sustainLevel, release float64, sampleRate int) []float64 {
+	enveloped := make([]float64, len(samples))
+	state := "attack"
+	currentLevel := 0.0
+	attackSamples := int(attack * float64(sampleRate))
+	decaySamples := int(decay * float64(sampleRate))
+	releaseSamples := int(release * float64(sampleRate))
+	sustainSamples := len(samples) - attackSamples - decaySamples - releaseSamples
+	if sustainSamples < 0 {
+		sustainSamples = 0
+		releaseSamples = len(samples) - attackSamples - decaySamples
+		if releaseSamples < 0 {
+			releaseSamples = 0
+		}
+	}
+
+	for i := 0; i < len(samples); i++ {
+		switch state {
+		case "attack":
+			if attackSamples > 0 {
+				currentLevel = float64(i) / float64(attackSamples)
+				if i >= attackSamples {
+					currentLevel = 1.0
+					state = "decay"
+				}
+			} else {
+				currentLevel = 1.0
+				state = "decay"
+			}
+		case "decay":
+			if decaySamples > 0 {
+				currentLevel = 1.0 - ((1.0 - sustainLevel) * float64(i-attackSamples) / float64(decaySamples))
+				if i >= attackSamples+decaySamples {
+					currentLevel = sustainLevel
+					state = "sustain"
+				}
+			} else {
+				currentLevel = sustainLevel
+				state = "sustain"
+			}
+		case "sustain":
+			currentLevel = sustainLevel
+			if i >= attackSamples+decaySamples+sustainSamples {
+				state = "release"
+			}
+		case "release":
+			if releaseSamples > 0 {
+				currentLevel = sustainLevel * (1.0 - float64(i-attackSamples-decaySamples-sustainSamples)/float64(releaseSamples))
+				if i >= attackSamples+decaySamples+sustainSamples+releaseSamples {
+					currentLevel = 0.0
+				}
+			} else {
+				currentLevel = 0.0
+			}
+		}
+
+		enveloped[i] = samples[i] * currentLevel
+	}
+
+	return enveloped
+}
+
+// Panning adjusts the stereo balance of the samples.
+// pan: Panning value where -1.0 is full left, 0.0 is center, and 1.0 is full right.
+// Returns left and right channel samples.
+func Panning(samples []float64, pan float64) ([]float64, []float64) {
+	left := make([]float64, len(samples))
+	right := make([]float64, len(samples))
+	// Clamp pan to [-1, 1]
+	if pan < -1.0 {
+		pan = -1.0
+	} else if pan > 1.0 {
+		pan = 1.0
+	}
+	// Calculate pan angles
+	theta := (pan + 1.0) * (math.Pi / 4) // Map pan from [-1,1] to [0, pi/2]
+	leftCoeff := math.Cos(theta)
+	rightCoeff := math.Sin(theta)
+	for i, sample := range samples {
+		left[i] = sample * leftCoeff
+		right[i] = sample * rightCoeff
+	}
+	return left, right
+}
+
+// Tremolo applies an amplitude modulation effect to the samples.
+// rate: Modulation rate in Hz.
+// depth: Modulation depth (0.0 to 1.0).
+func Tremolo(samples []float64, sampleRate int, rate, depth float64) []float64 {
+	modulated := make([]float64, len(samples))
+	lfoPhase := 0.0
+	lfoIncrement := rate / float64(sampleRate)
+	for i, sample := range samples {
+		mod := 1.0 - depth + depth*math.Sin(2*math.Pi*lfoPhase)
+		modulated[i] = sample * mod
+		lfoPhase += lfoIncrement
+		if lfoPhase >= 1.0 {
+			lfoPhase -= 1.0
+		}
+	}
+	return modulated
+}
+
+// Flanger applies a flanger effect to the samples.
+// baseDelay: Base delay time in seconds.
+// modDepth: Modulation depth in seconds.
+// modRate: Modulation rate in Hz.
+// feedback: Feedback factor (0.0 to less than 1.0).
+// mix: Mixing proportion of the delayed signal (0.0 to 1.0).
+func Flanger(samples []float64, sampleRate int, baseDelay, modDepth, modRate, feedback, mix float64) []float64 {
+	flanged := make([]float64, len(samples))
+	bufferSize := int((baseDelay+modDepth)*float64(sampleRate)) + 2
+	buffer := make([]float64, bufferSize)
+	bufferIndex := 0
+	lfoPhase := 0.0
+	lfoIncrement := modRate / float64(sampleRate)
+
+	for i, sample := range samples {
+		// Calculate current delay in samples
+		lfoValue := math.Sin(2 * math.Pi * lfoPhase)
+		currentDelay := baseDelay + modDepth*lfoValue
+		delaySamples := int(currentDelay * float64(sampleRate))
+		readIndex := (bufferIndex - delaySamples + bufferSize) % bufferSize
+
+		// Get delayed sample
+		delayed := buffer[readIndex]
+
+		// Apply feedback
+		buffer[bufferIndex] = sample + delayed*feedback
+
+		// Mix dry and wet signals
+		flanged[i] = sample*(1.0-mix) + delayed*mix
+
+		// Increment indices and phase
+		bufferIndex = (bufferIndex + 1) % bufferSize
+		lfoPhase += lfoIncrement
+		if lfoPhase >= 1.0 {
+			lfoPhase -= 1.0
+		}
+	}
+
+	return flanged
+}
+
+// Phaser applies a phaser effect to the samples.
+// rate: Modulation rate in Hz.
+// depth: Modulation depth.
+// feedback: Feedback factor (0.0 to less than 1.0).
+// sampleRate: Sampling rate in Hz.
+func Phaser(samples []float64, sampleRate int, rate, depth, feedback float64) []float64 {
+	phased := make([]float64, len(samples))
+	phaseIncrement := rate / float64(sampleRate)
+	phase := 0.0
+
+	// Initialize two all-pass filters for a basic phaser
+	// Note: A proper phaser would require multiple all-pass filters with phase shifts
+	allPass1 := NewBiquad("all-pass", 1000.0, 0.7, float64(sampleRate))
+	allPass2 := NewBiquad("all-pass", 1500.0, 0.7, float64(sampleRate))
+
+	for i, sample := range samples {
+		// Sweep the center frequency with LFO
+		sweep := math.Sin(2 * math.Pi * phase)
+		centerFreq := 1000.0 + depth*1000.0*sweep // Example frequency sweep from 0 to 2000 Hz
+		if centerFreq < 20.0 {                    // Prevent frequencies below human hearing
+			centerFreq = 20.0
+		} else if centerFreq > float64(sampleRate)/2 {
+			centerFreq = float64(sampleRate) / 2
+		}
+
+		// Update filter parameters dynamically
+		allPass1.UpdateParameters("all-pass", centerFreq, 0.7, float64(sampleRate))
+		allPass2.UpdateParameters("all-pass", centerFreq, 0.7, float64(sampleRate))
+
+		// Handle feedback sample
+		var feedbackSample float64
+		if i > 0 {
+			feedbackSample = feedback * phased[i-1]
+		} else {
+			feedbackSample = 0.0
+		}
+
+		// Apply all-pass filters with feedback
+		out1 := allPass1.Process(sample + feedbackSample)
+		out2 := allPass2.Process(out1 + feedbackSample)
+		phased[i] = out2
+
+		// Increment phase
+		phase += phaseIncrement
+		if phase >= 1.0 {
+			phase -= 1.0
+		}
+	}
+
+	return phased
+}
+
+// RingModulation applies ring modulation to the samples.
+// carrierFreq: Frequency of the carrier oscillator in Hz.
+// sampleRate: Sampling rate in Hz.
+func RingModulation(samples []float64, carrierFreq float64, sampleRate int) []float64 {
+	modulated := make([]float64, len(samples))
+	carrierPhase := 0.0
+	carrierIncrement := carrierFreq / float64(sampleRate)
+	for i, sample := range samples {
+		carrier := math.Sin(2 * math.Pi * carrierPhase)
+		modulated[i] = sample * carrier
+		carrierPhase += carrierIncrement
+		if carrierPhase >= 1.0 {
+			carrierPhase -= 1.0
+		}
+	}
+	return modulated
+}
+
+// WahWah applies a wah-wah effect to the samples.
+// baseFreq: Base center frequency of the band-pass filter in Hz.
+// sweepFreq: Frequency of the sweep (LFO) in Hz.
+// Q: Quality factor of the band-pass filter.
+func WahWah(samples []float64, sampleRate int, baseFreq, sweepFreq, Q float64) []float64 {
+	phased := make([]float64, len(samples))
+	filter := NewBiquad("band-pass", baseFreq, Q, float64(sampleRate))
+	lfoPhase := 0.0
+	lfoIncrement := sweepFreq / float64(sampleRate)
+
+	for i, sample := range samples {
+		// Sweep the center frequency with LFO
+		sweep := math.Sin(2 * math.Pi * lfoPhase)
+		centerFreq := baseFreq + 500.0*sweep // Example sweep range: ±500Hz
+		if centerFreq < 20.0 {
+			centerFreq = 20.0
+		} else if centerFreq > float64(sampleRate)/2 {
+			centerFreq = float64(sampleRate) / 2
+		}
+		// Update filter parameters
+		filter.UpdateParameters("band-pass", centerFreq, Q, float64(sampleRate))
+		// Apply filter
+		phased[i] = filter.Process(sample)
+		// Increment LFO phase
+		lfoPhase += lfoIncrement
+		if lfoPhase >= 1.0 {
+			lfoPhase -= 1.0
+		}
+	}
+
+	return phased
+}
+
+// StereoWidening enhances the stereo image by adjusting the amplitudes of left and right channels.
+// left: Left channel samples.
+// right: Right channel samples.
+// width: Width factor (0.0 to 1.0), where 0.0 is original stereo and 1.0 is maximum widening.
+func StereoWidening(left, right []float64, width float64) ([]float64, []float64) {
+	widenedLeft := make([]float64, len(left))
+	widenedRight := make([]float64, len(right))
+	for i := 0; i < len(left); i++ {
+		widenedLeft[i] = left[i] * (1.0 + width)
+		widenedRight[i] = right[i] * (1.0 + width)
+		// Clamp to [-1, 1]
+		if widenedLeft[i] > 1.0 {
+			widenedLeft[i] = 1.0
+		} else if widenedLeft[i] < -1.0 {
+			widenedLeft[i] = -1.0
+		}
+		if widenedRight[i] > 1.0 {
+			widenedRight[i] = 1.0
+		} else if widenedRight[i] < -1.0 {
+			widenedRight[i] = -1.0
+		}
+	}
+	return widenedLeft, widenedRight
+}
+
 // MultibandCompression applies compression independently across different frequency bands.
 // bands: Slice of frequency bands, each defined by Low and High cutoff frequencies.
 // compressors: Slice of CompressorSettings structs corresponding to each band.
@@ -968,7 +736,8 @@ func MultibandCompression(samples []float64, bands []struct {
 
 	// Compress each band
 	for i := range splitBands {
-		splitBands[i] = Compressor(splitBands[i], compressors[i].Threshold, compressors[i].Ratio, compressors[i].Attack, compressors[i].Release, sampleRate)
+		settings := compressors[i]
+		splitBands[i] = Compressor(splitBands[i], settings.Threshold, settings.Ratio, settings.Attack, settings.Release, sampleRate)
 	}
 
 	// Recombine bands
@@ -976,6 +745,19 @@ func MultibandCompression(samples []float64, bands []struct {
 	for _, band := range splitBands {
 		for i := range recombined {
 			recombined[i] += band[i]
+		}
+	}
+
+	// Normalize to prevent clipping
+	max := 0.0
+	for _, sample := range recombined {
+		if math.Abs(sample) > max {
+			max = math.Abs(sample)
+		}
+	}
+	if max > 1.0 {
+		for i := range recombined {
+			recombined[i] /= max
 		}
 	}
 
@@ -1000,4 +782,254 @@ func PitchShift(samples []float64, semitones float64) []float64 {
 		shifted[i] = samples[lower]*(1-frac) + samples[upper]*frac
 	}
 	return shifted
+}
+
+// FrequencyModulation applies frequency modulation to the samples.
+// It generates an FM signal based on the input samples acting as the modulator.
+// carrierFreq is the base frequency of the carrier oscillator.
+// modDepth controls the intensity of the frequency modulation.
+func FrequencyModulation(samples []float64, carrierFreq, modDepth, sampleRate float64) []float64 {
+	modulated := make([]float64, len(samples))
+	carrierPhase := 0.0
+
+	for i, sample := range samples {
+		// Calculate instantaneous frequency
+		instantFreq := carrierFreq + modDepth*sample
+
+		// Update phase
+		carrierPhase += (instantFreq / sampleRate) * 2 * math.Pi
+
+		// Wrap phase to [0, 2π] to prevent numerical issues
+		if carrierPhase > 2*math.Pi {
+			carrierPhase -= 2 * math.Pi
+		} else if carrierPhase < 0 {
+			carrierPhase += 2 * math.Pi
+		}
+
+		// Generate FM signal
+		modulated[i] = math.Sin(carrierPhase)
+	}
+
+	return modulated
+}
+
+// PitchModulation applies pitch modulation (vibrato) to the samples.
+// modFreq is the frequency of the LFO in Hz.
+// modDepth is the maximum pitch deviation in seconds.
+// sampleRate is the sampling rate in Hz.
+func PitchModulation(samples []float64, modFreq, modDepth float64, sampleRate int) []float64 {
+	modulated := make([]float64, len(samples))
+	lfoPhase := 0.0
+	lfoIncrement := modFreq / float64(sampleRate)
+	maxDelay := int(modDepth * float64(sampleRate)) // Convert depth to samples
+
+	// Create a circular buffer for delay
+	buffer := make([]float64, maxDelay*2)
+	bufferIndex := 0
+
+	for i := 0; i < len(samples); i++ {
+		// Calculate LFO value
+		lfoValue := math.Sin(2 * math.Pi * lfoPhase)
+		// Calculate current delay in samples
+		currentDelay := int(math.Abs(lfoValue) * float64(maxDelay))
+		readIndex := (bufferIndex - currentDelay + len(buffer)) % len(buffer)
+
+		// Read delayed sample
+		modulated[i] = buffer[readIndex]
+
+		// Write current sample to buffer
+		buffer[bufferIndex] = samples[i]
+		bufferIndex = (bufferIndex + 1) % len(buffer)
+
+		// Increment LFO phase
+		lfoPhase += lfoIncrement
+		if lfoPhase >= 1.0 {
+			lfoPhase -= 1.0
+		}
+	}
+
+	return modulated
+}
+
+// Reverb applies a more realistic reverb effect by using multiple parallel delay lines.
+// delayTimes: Slice of delay times in seconds for each parallel delay line.
+// decays: Slice of decay factors corresponding to each delay line.
+// Ensure that len(delayTimes) == len(decays).
+func Reverb(samples []float64, sampleRate int, delayTimes []float64, decays []float64) []float64 {
+	if len(delayTimes) != len(decays) {
+		// Mismatch in the number of delay lines and decays
+		return samples
+	}
+
+	reverb := make([]float64, len(samples))
+	numDelays := len(delayTimes)
+	buffers := make([][]float64, numDelays)
+	bufferIndices := make([]int, numDelays)
+
+	for i := 0; i < numDelays; i++ {
+		delaySamples := int(delayTimes[i] * float64(sampleRate))
+		if delaySamples <= 0 {
+			delaySamples = 1
+		}
+		buffers[i] = make([]float64, delaySamples)
+		bufferIndices[i] = 0
+	}
+
+	for i, sample := range samples {
+		var wet float64 = 0.0
+		for j := 0; j < numDelays; j++ {
+			delayed := buffers[j][bufferIndices[j]]
+			wet += delayed * decays[j]
+			// Update buffer with current sample plus feedback
+			buffers[j][bufferIndices[j]] = sample + delayed*decays[j]
+			// Increment buffer index
+			bufferIndices[j] = (bufferIndices[j] + 1) % len(buffers[j])
+		}
+		// Mix dry and wet signals
+		reverb[i] = sample + wet
+		// Optional: Clamp to prevent clipping
+		if reverb[i] > 1.0 {
+			reverb[i] = 1.0
+		} else if reverb[i] < -1.0 {
+			reverb[i] = -1.0
+		}
+	}
+
+	return reverb
+}
+
+// Chorus applies a chorus effect to the samples.
+// sampleRate: Sampling rate in Hz.
+// delay: Delay time in seconds.
+// depth: Modulation depth in seconds.
+// rate: Modulation rate in Hz.
+// mix: Mixing proportion of the delayed signal (0.0 to 1.0).
+func Chorus(samples []float64, sampleRate int, delay, depth, rate, mix float64) []float64 {
+	chorused := make([]float64, len(samples))
+	bufferSize := int((delay+depth)*float64(sampleRate)) + 2
+	buffer := make([]float64, bufferSize)
+	bufferIndex := 0
+	lfoPhase := 0.0
+	lfoIncrement := rate / float64(sampleRate)
+
+	for i, sample := range samples {
+		// Calculate current delay
+		lfoValue := math.Sin(2 * math.Pi * lfoPhase)
+		currentDelay := delay + depth*lfoValue
+		delaySamples := int(currentDelay * float64(sampleRate))
+		readIndex := (bufferIndex - delaySamples + bufferSize) % bufferSize
+
+		// Get delayed sample
+		delayed := buffer[readIndex]
+
+		// Write current sample to buffer
+		buffer[bufferIndex] = sample + delayed*0.5 // Feedback factor (example)
+
+		// Mix dry and wet signals
+		chorused[i] = sample*(1.0-mix) + delayed*mix
+
+		// Increment indices and phase
+		bufferIndex = (bufferIndex + 1) % bufferSize
+		lfoPhase += lfoIncrement
+		if lfoPhase >= 1.0 {
+			lfoPhase -= 1.0
+		}
+	}
+
+	return chorused
+}
+
+// Bitcrusher reduces the bit depth and/or sample rate of the samples to create a lo-fi effect.
+// bitDepth: Number of bits per sample (e.g., 8 for 8-bit).
+// sampleRateReduction: Factor by which to reduce the sample rate (e.g., 2 to halve the sample rate).
+func Bitcrusher(samples []float64, bitDepth int, sampleRateReduction int) []float64 {
+	if bitDepth < 1 {
+		bitDepth = 1
+	}
+	if bitDepth > 16 {
+		bitDepth = 16
+	}
+	if sampleRateReduction < 1 {
+		sampleRateReduction = 1
+	}
+
+	step := 1.0 / math.Pow(2, float64(bitDepth))
+	bitcrushed := make([]float64, len(samples))
+
+	for i, sample := range samples {
+		// Quantize the sample
+		bitcrushed[i] = math.Round(sample/step) * step
+
+		// Reduce sample rate by keeping every nth sample
+		if sampleRateReduction > 1 && i%sampleRateReduction != 0 {
+			bitcrushed[i] = 0.0
+		}
+
+		// Clamp to [-1, 1]
+		if bitcrushed[i] > 1.0 {
+			bitcrushed[i] = 1.0
+		} else if bitcrushed[i] < -1.0 {
+			bitcrushed[i] = -1.0
+		}
+	}
+
+	return bitcrushed
+}
+
+// Drive applies a distortion effect to a single sample.
+// drive controls the intensity of the distortion.
+func Drive(sample, drive float64) float64 {
+	if drive > 0 {
+		return sample * (1 + drive) / (1 + drive*math.Abs(sample))
+	}
+	return sample
+}
+
+// Limiter ensures the signal doesn't exceed the range [-1.0, 1.0].
+func Limiter(samples []float64) []float64 {
+	limited := make([]float64, len(samples))
+	for i, sample := range samples {
+		if sample > 1.0 {
+			limited[i] = 1.0
+		} else if sample < -1.0 {
+			limited[i] = -1.0
+		} else {
+			limited[i] = sample
+		}
+	}
+	return limited
+}
+
+// NormalizeSamples scales the samples so that the peak amplitude matches the given target peak.
+func NormalizeSamples(samples []float64, targetPeak float64) []float64 {
+	if targetPeak <= 0 {
+		// Invalid target peak, return samples unmodified
+		return samples
+	}
+
+	currentPeak := 0.0
+	for _, sample := range samples {
+		abs := math.Abs(sample)
+		if abs > currentPeak {
+			currentPeak = abs
+		}
+	}
+
+	if currentPeak == 0 {
+		// All samples are zero, return unmodified
+		return samples
+	}
+
+	scale := targetPeak / currentPeak
+	normalizedSamples := make([]float64, len(samples))
+	for i, sample := range samples {
+		normalizedSamples[i] = sample * scale
+		// Clamp the values to the range [-1.0, 1.0] after scaling
+		if normalizedSamples[i] > 1.0 {
+			normalizedSamples[i] = 1.0
+		} else if normalizedSamples[i] < -1.0 {
+			normalizedSamples[i] = -1.0
+		}
+	}
+	return normalizedSamples
 }
