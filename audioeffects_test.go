@@ -352,3 +352,109 @@ func TestEffectsGeneration(t *testing.T) {
 	}
 	t.Logf("Generated %s", pitchShiftPath)
 }
+
+// TestQuadraticFadeIn generates a WAV file with QuadraticFadeIn applied for manual inspection.
+func TestQuadraticFadeIn(t *testing.T) {
+	sampleRate := 44100
+	duration := 1.0 // seconds
+	fadeDuration := 0.5
+	freq := 440.0
+
+	outputDir := "test_outputs"
+	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
+		t.Fatalf("Failed to create output directory: %v", err)
+	}
+
+	numSamples := int(duration * float64(sampleRate))
+	samples := make([]float64, numSamples)
+	for i := 0; i < numSamples; i++ {
+		tVal := float64(i) / float64(sampleRate)
+		samples[i] = math.Sin(2 * math.Pi * freq * tVal)
+	}
+
+	fadedIn := QuadraticFadeIn(samples, fadeDuration, sampleRate)
+	fadeInPath := filepath.Join(outputDir, "quadratic_fadein.wav")
+	if err := writeWav(fadeInPath, fadedIn, sampleRate, 1); err != nil {
+		t.Fatalf("Failed to write quadratic_fadein.wav: %v", err)
+	}
+	t.Logf("Generated %s", fadeInPath)
+}
+
+// TestQuadraticFadeOut generates a WAV file with QuadraticFadeOut applied for manual inspection.
+func TestQuadraticFadeOut(t *testing.T) {
+	sampleRate := 44100
+	duration := 1.0 // seconds
+	fadeDuration := 0.5
+	freq := 440.0
+
+	outputDir := "test_outputs"
+	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
+		t.Fatalf("Failed to create output directory: %v", err)
+	}
+
+	numSamples := int(duration * float64(sampleRate))
+	samples := make([]float64, numSamples)
+	for i := 0; i < numSamples; i++ {
+		tVal := float64(i) / float64(sampleRate)
+		samples[i] = math.Sin(2 * math.Pi * freq * tVal)
+	}
+
+	fadedOut := QuadraticFadeOut(samples, fadeDuration, sampleRate)
+	fadeOutPath := filepath.Join(outputDir, "quadratic_fadeout.wav")
+	if err := writeWav(fadeOutPath, fadedOut, sampleRate, 1); err != nil {
+		t.Fatalf("Failed to write quadratic_fadeout.wav: %v", err)
+	}
+	t.Logf("Generated %s", fadeOutPath)
+}
+
+// TestEnvelopeAtTime generates a WAV file representing the ADSR envelope for manual inspection.
+func TestEnvelopeAtTime(t *testing.T) {
+	sampleRate := 44100
+	duration := 2.0 // seconds
+	attack := 0.5
+	decay := 0.3
+	sustainLevel := 0.7
+	release := 0.5
+
+	outputDir := "test_outputs"
+	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
+		t.Fatalf("Failed to create output directory: %v", err)
+	}
+
+	numSamples := int(duration * float64(sampleRate))
+	samples := make([]float64, numSamples)
+	for i := 0; i < numSamples; i++ {
+		tVal := float64(i) / float64(sampleRate)
+		envelope := EnvelopeAtTime(tVal, attack, decay, sustainLevel, release, duration)
+		samples[i] = envelope
+	}
+
+	envelopePath := filepath.Join(outputDir, "envelope_at_time.wav")
+	if err := writeWav(envelopePath, samples, sampleRate, 1); err != nil {
+		t.Fatalf("Failed to write envelope_at_time.wav: %v", err)
+	}
+	t.Logf("Generated %s", envelopePath)
+}
+
+// TestShimmer applies the Shimmer effect and generates a WAV file for manual inspection.
+func TestShimmer(t *testing.T) {
+	sampleRate := 44100
+	duration := 2.0 // seconds
+	freq1 := 110.0
+	freq2 := 220.0
+
+	outputDir := "test_outputs"
+	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
+		t.Fatalf("Failed to create output directory: %v", err)
+	}
+
+	original := generateBassMelody(duration, sampleRate, freq1, freq2)
+
+	// Apply Shimmer
+	shimmered := Shimmer(original, sampleRate, 0.3, 0.5, 12.0, 0.3) // 12 semitones, 30% feedback
+	shimmerPath := filepath.Join(outputDir, "shimmer.wav")
+	if err := writeWav(shimmerPath, shimmered, sampleRate, 1); err != nil {
+		t.Fatalf("Failed to write shimmer.wav: %v", err)
+	}
+	t.Logf("Generated %s", shimmerPath)
+}
