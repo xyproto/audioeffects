@@ -930,3 +930,21 @@ func pitchShift(samples []float64, factor float64) []float64 {
 
 	return pitched
 }
+
+// ShimmerBitcrusher applies both Shimmer and Bitcrusher effects to the provided audio samples.
+// The Shimmer effect is applied first, followed by the Bitcrusher effect.
+//
+// Parameters:
+// - samples: The input audio samples to be processed.
+// - sampleRate: The sample rate of the audio in Hz.
+// - delayTime: The delay time in seconds before the shimmer is mixed back.
+// - mix: The mix level of the shimmer effect (0.0 to 1.0).
+// - pitchShiftSemitones: The number of semitones to shift the pitch for the shimmer.
+// - bitDepth: The number of bits to reduce the sample precision in bitcrushing.
+// - sampleRateReduction: The number of samples to hold each sample value in bitcrushing.
+//
+// Returns:
+// - A new slice of samples with both Shimmer and Bitcrusher effects applied.
+func ShimmerBitcrusher(samples []float64, sampleRate int, delayTime float64, mix float64, pitchShiftSemitones float64, bitDepth int, sampleRateReduction int, feedback float64) []float64 {
+	return Bitcrusher(Shimmer(samples, sampleRate, delayTime, mix, pitchShiftSemitones, feedback), bitDepth, sampleRateReduction)
+}

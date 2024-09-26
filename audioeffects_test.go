@@ -458,3 +458,45 @@ func TestShimmer(t *testing.T) {
 	}
 	t.Logf("Generated %s", shimmerPath)
 }
+
+// TestShimmerBitcrusher applies the ShimmerBitcrusher effect with feedback and generates a WAV file for manual inspection.
+func TestShimmerBitcrusher(t *testing.T) {
+	sampleRate := 44100
+	duration := 2.0 // seconds
+	freq1 := 110.0
+	freq2 := 220.0
+
+	outputDir := "test_outputs"
+	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
+		t.Fatalf("Failed to create output directory: %v", err)
+	}
+
+	original := generateBassMelody(duration, sampleRate, freq1, freq2)
+
+	// Parameters for Shimmer
+	delayTime := 0.3            // seconds
+	mix := 0.5                  // 50% shimmer mix
+	pitchShiftSemitones := 12.0 // One octave up
+	feedback := 0.3             // 30% feedback
+
+	// Parameters for Bitcrusher
+	bitDepth := 4              // Lower bit depth for noticeable quantization noise
+	sampleRateReduction := 100 // Higher sample rate reduction for heavy bitcrushing
+
+	// Apply ShimmerBitcrusher
+	shimmerBitcrushed := ShimmerBitcrusher(
+		append([]float64(nil), original...),
+		sampleRate,
+		delayTime,
+		mix,
+		pitchShiftSemitones,
+		bitDepth,
+		sampleRateReduction,
+		feedback,
+	)
+	shimmerBitcrusherPath := filepath.Join(outputDir, "shimmer_bitcrusher.wav")
+	if err := writeWav(shimmerBitcrusherPath, shimmerBitcrushed, sampleRate, 1); err != nil {
+		t.Fatalf("Failed to write shimmer_bitcrusher.wav: %v", err)
+	}
+	t.Logf("Generated %s", shimmerBitcrusherPath)
+}
