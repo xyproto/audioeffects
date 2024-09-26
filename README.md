@@ -95,5 +95,5 @@ func main() {
 
 ### General info
 
-* Version: 0.9.1
+* Version: 0.10.0
 * License: MIT
