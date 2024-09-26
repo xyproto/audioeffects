@@ -28,7 +28,6 @@ import (
 func writeWav(filename string, samples []float64, sampleRate int, numChannels int) error {
     intSamples := make([]int, len(samples)*numChannels)
     for i, sample := range samples {
-        // Clamp the sample to [-1.0, 1.0]
         if sample > 1.0 {
             sample = 1.0
         } else if sample < -1.0 {
@@ -68,7 +67,6 @@ func main() {
     samples := make([]float64, numSamples)
 
     // Create white noise burst with quick decay
-    rand.Seed(time.Now().UnixNano())
     for i := 0; i < numSamples; i++ {
         // Short duration noise burst
         if i < int(float64(sampleRate)*0.05) { // 50 ms of noise
