@@ -1,12 +1,10 @@
 # Audio Effects
 
-This is a Go package with only pure functions, offering ways to apply audio effects to audio samples.
+Apply audio effects to samples.
 
-The audio samples are slices of `float64` (`[]float64`).
+Note that this package is a bit experimental and a work in progress.
 
-The sample rate is typically 44100 or 48000.
-
-Several of the functions are a bit experimental.
+Audio samples are passed in as `[]float64`. The sample rate is typically 44100 or 48000.
 
 ### Example use
 
