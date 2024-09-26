@@ -142,5 +142,5 @@ func ShimmerBitcrusher(samples []float64, sampleRate int, delayTime float64, mix
 
 ### General info
 
-* Version: 0.11.0
+* Version: 0.11.1
 * License: MIT
