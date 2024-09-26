@@ -1,9 +1,8 @@
-// audioeffects.go
-// Package audioeffects provides a collection of audio processing effects for manipulating audio samples.
 package audioeffects
 
 import (
 	"math"
+	"math/rand"
 )
 
 // Biquad represents a biquad filter with its coefficients and state variables.
@@ -1032,4 +1031,103 @@ func NormalizeSamples(samples []float64, targetPeak float64) []float64 {
 		}
 	}
 	return normalizedSamples
+}
+
+// Subtractive synthesis using one-pole filter
+func SubtractOp(duration, amplitude float64, b1 float64, ampEnv []float64, sampleRate int) []float64 {
+	samples := make([]float64, int(duration*float64(sampleRate)))
+	for i := 0; i < len(samples); i++ {
+		// Random square wave generator
+		noise := rand.Float64()*2 - 1
+		samples[i] = applyOnePoleFilter(noise, b1)
+		samples[i] *= amplitudeEnvelope(ampEnv, float64(i)/float64(len(samples)))
+	}
+	return samples
+}
+
+func applyOnePoleFilter(sample, b1 float64) float64 {
+	// Apply low-pass filter (when b1 < 0) or high-pass (when b1 > 0)
+	return b1 * sample
+}
+
+// Additive synthesis with partials
+func AddPartials(duration, amplitude, frequency float64, partials []float64, ampEnv []float64, sampleRate int) []float64 {
+	samples := make([]float64, int(duration*float64(sampleRate)))
+	for i := 0; i < len(samples); i++ {
+		t := float64(i) / float64(sampleRate)
+		for j := 0; j < len(partials); j += 2 {
+			partialsFreq := partials[j] * frequency
+			partialsAmp := partials[j+1]
+			samples[i] += partialsAmp * math.Sin(2*math.Pi*partialsFreq*t)
+		}
+		samples[i] *= amplitudeEnvelope(ampEnv, float64(i)/float64(len(samples)))
+		samples[i] *= amplitude
+	}
+	return samples
+}
+
+// FM synthesis
+func FMSynthesis(duration, carrierFreq, modFreq, modIndex, amplitude float64, ampEnv []float64, sampleRate int) []float64 {
+	samples := make([]float64, int(duration*float64(sampleRate)))
+	for i := 0; i < len(samples); i++ {
+		t := float64(i) / float64(sampleRate)
+		modulator := modIndex * math.Sin(2*math.Pi*modFreq*t)
+		samples[i] = amplitude * math.Sin(2*math.Pi*carrierFreq*t+modulator) * amplitudeEnvelope(ampEnv, float64(i)/float64(len(samples)))
+	}
+	return samples
+}
+
+// Karplus-Strong algorithm
+func KarplusStrong(duration, amplitude float64, p int, b float64, sampleRate int) []float64 {
+	samples := make([]float64, int(duration*float64(sampleRate)))
+	buffer := make([]float64, p)
+	for i := range buffer {
+		buffer[i] = rand.Float64()*2 - 1 // Initial noise burst
+	}
+
+	for i := 0; i < len(samples); i++ {
+		samples[i] = buffer[i%p] * amplitude
+		average := 0.5 * (buffer[i%p] + buffer[(i+1)%p])
+		buffer[i%p] = b*average + (1-b)*buffer[i%p]
+	}
+	return samples
+}
+
+// Granular synthesis
+func GranularSynthesis(samples []float64, grainSize, overlap int, sampleRate int) []float64 {
+	output := make([]float64, len(samples))
+	grains := make([][]float64, len(samples)/grainSize)
+	for i := 0; i < len(grains); i++ {
+		grains[i] = make([]float64, grainSize)
+		copy(grains[i], samples[i*grainSize:(i+1)*grainSize])
+	}
+
+	for i := range grains {
+		for j := 0; j < grainSize; j++ {
+			output[i*grainSize+j] += grains[i][j]
+		}
+	}
+
+	return output
+}
+
+// Envelope function
+func amplitudeEnvelope(env []float64, position float64) float64 {
+	// Simple linear interpolation between envelope points
+	if len(env) < 4 {
+		return 1.0
+	}
+	if position <= env[0] {
+		return env[1]
+	}
+	if position >= env[len(env)-2] {
+		return env[len(env)-1]
+	}
+	for i := 0; i < len(env)-2; i += 2 {
+		if position >= env[i] && position <= env[i+2] {
+			t := (position - env[i]) / (env[i+2] - env[i])
+			return (1-t)*env[i+1] + t*env[i+3]
+		}
+	}
+	return 1.0
 }
